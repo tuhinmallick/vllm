@@ -30,7 +30,8 @@ def _raise_exception_on_finish(task: asyncio.Task,
             return
         except Exception as exc:
             raise AsyncEngineDeadError(
-                msg + " See stack trace above for the actual cause.") from exc
+                f"{msg} See stack trace above for the actual cause."
+            ) from exc
         raise AsyncEngineDeadError(msg)
     except Exception as exc:
         request_tracker.propagate_exception(exc)
@@ -301,11 +302,11 @@ class AsyncLLMEngine:
         elif self.worker_use_ray:
             engine_class = ray.remote(num_cpus=0)(self._engine_class).remote
         else:
-            # FIXME(woosuk): This is a bit hacky. Be careful when changing the
-            # order of the arguments.
-            cache_config = args[1]
             parallel_config = args[2]
             if parallel_config.tensor_parallel_size == 1:
+                # FIXME(woosuk): This is a bit hacky. Be careful when changing the
+                # order of the arguments.
+                cache_config = args[1]
                 num_gpus = cache_config.gpu_memory_utilization
             else:
                 num_gpus = 1
@@ -391,14 +392,13 @@ class AsyncLLMEngine:
                     "error that caused the background loop to stop "
                     "(AsyncEngineDeadError).")
 
-        stream = self._request_tracker.add_request(
+        return self._request_tracker.add_request(
             request_id,
             prompt=prompt,
             sampling_params=sampling_params,
             prompt_token_ids=prompt_token_ids,
-            arrival_time=arrival_time)
-
-        return stream
+            arrival_time=arrival_time,
+        )
 
     async def generate(
             self,
@@ -491,14 +491,14 @@ class AsyncLLMEngine:
         # Initialize the cluster.
         distributed_init_method, placement_group = initialize_cluster(
             parallel_config, engine_args.engine_use_ray)
-        # Create the async LLM engine.
-        engine = cls(parallel_config.worker_use_ray,
-                     engine_args.engine_use_ray,
-                     *engine_configs,
-                     distributed_init_method,
-                     placement_group,
-                     log_requests=not engine_args.disable_log_requests,
-                     log_stats=not engine_args.disable_log_stats,
-                     max_log_len=engine_args.max_log_len,
-                     start_engine_loop=start_engine_loop)
-        return engine
+        return cls(
+            parallel_config.worker_use_ray,
+            engine_args.engine_use_ray,
+            *engine_configs,
+            distributed_init_method,
+            placement_group,
+            log_requests=not engine_args.disable_log_requests,
+            log_stats=not engine_args.disable_log_stats,
+            max_log_len=engine_args.max_log_len,
+            start_engine_loop=start_engine_loop
+        )

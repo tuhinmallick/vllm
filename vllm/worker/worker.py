@@ -144,9 +144,9 @@ class Worker:
                     event.wait()
             return {}
 
-        output = self.model_runner.execute_model(seq_group_metadata_list,
-                                                 self.gpu_cache, cache_events)
-        return output
+        return self.model_runner.execute_model(
+            seq_group_metadata_list, self.gpu_cache, cache_events
+        )
 
 
 def _init_distributed_environment(

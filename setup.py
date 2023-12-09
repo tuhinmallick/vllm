@@ -77,14 +77,11 @@ def get_hipcc_rocm_version():
         print("Error running 'hipcc --version'")
         return None
 
-    # Extract the version using a regular expression
-    match = re.search(r'HIP version: (\S+)', result.stdout)
-    if match:
+    if match := re.search(r'HIP version: (\S+)', result.stdout):
         # Return the version string
         return match.group(1)
-    else:
-        print("Could not find HIP version in the output")
-        return None
+    print("Could not find HIP version in the output")
+    return None
 
 
 def get_nvcc_cuda_version(cuda_dir: str) -> Version:
@@ -92,12 +89,12 @@ def get_nvcc_cuda_version(cuda_dir: str) -> Version:
 
     Adapted from https://github.com/NVIDIA/apex/blob/8b7a1ff183741dd8f9b87e7bafd04cfde99cea28/setup.py
     """
-    nvcc_output = subprocess.check_output([cuda_dir + "/bin/nvcc", "-V"],
-                                          universal_newlines=True)
+    nvcc_output = subprocess.check_output(
+        [f"{cuda_dir}/bin/nvcc", "-V"], universal_newlines=True
+    )
     output = nvcc_output.split()
     release_idx = output.index("release") + 1
-    nvcc_cuda_version = parse(output[release_idx].split(",")[0])
-    return nvcc_cuda_version
+    return parse(output[release_idx].split(",")[0])
 
 
 def get_torch_arch_list() -> Set[str]:
@@ -118,8 +115,8 @@ def get_torch_arch_list() -> Set[str]:
 
     # Filter out the invalid architectures and print a warning.
     valid_archs = NVIDIA_SUPPORTED_ARCHS.union(
-        {s + "+PTX"
-         for s in NVIDIA_SUPPORTED_ARCHS})
+        {f"{s}+PTX" for s in NVIDIA_SUPPORTED_ARCHS}
+    )
     arch_list = torch_arch_list.intersection(valid_archs)
     # If none of the specified architectures are valid, raise an error.
     if not arch_list:
@@ -127,8 +124,7 @@ def get_torch_arch_list() -> Set[str]:
             "None of the CUDA/ROCM architectures in `TORCH_CUDA_ARCH_LIST` env "
             f"variable ({env_arch_list}) is supported. "
             f"Supported CUDA/ROCM architectures are: {valid_archs}.")
-    invalid_arch_list = torch_arch_list - valid_archs
-    if invalid_arch_list:
+    if invalid_arch_list := torch_arch_list - valid_archs:
         warnings.warn(
             f"Unsupported CUDA/ROCM architectures ({invalid_arch_list}) are "
             "excluded from the `TORCH_CUDA_ARCH_LIST` env variable "
@@ -181,8 +177,9 @@ if _is_cuda():
                 "CUDA 11.8 or higher is required for compute capability 8.9. "
                 "Targeting compute capability 8.0 instead.",
                 stacklevel=2)
-            compute_capabilities = set(cc for cc in compute_capabilities
-                                       if not cc.startswith("8.9"))
+            compute_capabilities = {
+                cc for cc in compute_capabilities if not cc.startswith("8.9")
+            }
             compute_capabilities.add("8.0+PTX")
         if any(cc.startswith("9.0") for cc in compute_capabilities):
             raise RuntimeError(
@@ -210,8 +207,6 @@ elif _is_hip():
             f"Only the following arch is supported: {ROCM_SUPPORTED_ARCHS}"
             f"amdgpu_arch_found: {amd_arch}")
 
-ext_modules = []
-
 vllm_extension_sources = [
     "csrc/cache_kernels.cu",
     "csrc/attention/attention_kernels.cu",
@@ -234,7 +229,7 @@ vllm_extension = CUDAExtension(
         "nvcc": NVCC_FLAGS,
     },
 )
-ext_modules.append(vllm_extension)
+ext_modules = [vllm_extension]
 
 
 def get_path(*filepath) -> str:
@@ -247,9 +242,9 @@ def find_version(filepath: str) -> str:
     Adapted from https://github.com/ray-project/ray/blob/0b190ee1160eeca9796bc091e07eaebf4c85b511/python/setup.py
     """
     with open(filepath) as fp:
-        version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                                  fp.read(), re.M)
-        if version_match:
+        if version_match := re.search(
+            r"^__version__ = ['\"]([^'\"]*)['\"]", fp.read(), re.M
+        ):
             return version_match.group(1)
         raise RuntimeError("Unable to find version string.")
 

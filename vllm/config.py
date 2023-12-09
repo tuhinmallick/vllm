@@ -130,8 +130,6 @@ class ModelConfig:
         self.tokenizer_mode = tokenizer_mode
 
     def _verify_quantization(self) -> None:
-        supported_quantization = ["awq", "squeezellm"]
-        rocm_not_supported_quantization = ["awq"]
         if self.quantization is not None:
             self.quantization = self.quantization.lower()
 
@@ -149,10 +147,12 @@ class ModelConfig:
                     f"({self.quantization}).")
 
         if self.quantization is not None:
+            supported_quantization = ["awq", "squeezellm"]
             if self.quantization not in supported_quantization:
                 raise ValueError(
                     f"Unknown quantization method: {self.quantization}. Must "
                     f"be one of {supported_quantization}.")
+            rocm_not_supported_quantization = ["awq"]
             if is_hip(
             ) and self.quantization in rocm_not_supported_quantization:
                 raise ValueError(
@@ -291,9 +291,9 @@ class CacheConfig:
                f"the {total_cpu_memory / _GB:.2f} GiB total CPU memory is "
                "allocated for the swap space.")
         if cpu_memory_usage > 0.7 * total_cpu_memory:
-            raise ValueError("Too large swap space. " + msg)
+            raise ValueError(f"Too large swap space. {msg}")
         elif cpu_memory_usage > 0.4 * total_cpu_memory:
-            logger.warning("Possibly too large swap space. " + msg)
+            logger.warning(f"Possibly too large swap space. {msg}")
 
 
 class ParallelConfig:
@@ -316,12 +316,9 @@ class ParallelConfig:
     ) -> None:
         self.pipeline_parallel_size = pipeline_parallel_size
         self.tensor_parallel_size = tensor_parallel_size
-        self.worker_use_ray = worker_use_ray
-        self.max_parallel_loading_workers = max_parallel_loading_workers
-
         self.world_size = pipeline_parallel_size * tensor_parallel_size
-        if self.world_size > 1:
-            self.worker_use_ray = True
+        self.worker_use_ray = True if self.world_size > 1 else worker_use_ray
+        self.max_parallel_loading_workers = max_parallel_loading_workers
         self._verify_args()
 
     def _verify_args(self) -> None:
@@ -401,16 +398,11 @@ def _get_and_verify_dtype(
     if isinstance(dtype, str):
         dtype = dtype.lower()
         if dtype == "auto":
-            if config_dtype == torch.float32:
-                # Following the common practice, we use float16 for float32
-                # models.
-                torch_dtype = torch.float16
-            else:
-                torch_dtype = config_dtype
-        else:
-            if dtype not in _STR_DTYPE_TO_TORCH_DTYPE:
-                raise ValueError(f"Unknown dtype: {dtype}")
+            torch_dtype = torch.float16 if config_dtype == torch.float32 else config_dtype
+        elif dtype in _STR_DTYPE_TO_TORCH_DTYPE:
             torch_dtype = _STR_DTYPE_TO_TORCH_DTYPE[dtype]
+        else:
+            raise ValueError(f"Unknown dtype: {dtype}")
     elif isinstance(dtype, torch.dtype):
         torch_dtype = dtype
     else:
@@ -426,13 +418,7 @@ def _get_and_verify_dtype(
 
     # Verify the dtype.
     if torch_dtype != config_dtype:
-        if torch_dtype == torch.float32:
-            # Upcasting to float32 is allowed.
-            pass
-        elif config_dtype == torch.float32:
-            # Downcasting from float32 to float16 or bfloat16 is allowed.
-            pass
-        else:
+        if torch_dtype != torch.float32 and config_dtype != torch.float32:
             # Casting between float16 and bfloat16 is allowed with a warning.
             logger.warning(f"Casting {config_dtype} to {torch_dtype}.")
 

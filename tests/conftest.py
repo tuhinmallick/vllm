@@ -202,8 +202,7 @@ class VllmRunner:
                                             use_beam_search=True,
                                             temperature=0.0,
                                             max_tokens=max_tokens)
-        outputs = self.generate(prompts, beam_search_params)
-        return outputs
+        return self.generate(prompts, beam_search_params)
 
 
 @pytest.fixture

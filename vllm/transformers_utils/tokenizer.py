@@ -49,19 +49,18 @@ def get_tokenizer(
             "original tokenizer.")
         raise RuntimeError(err_msg) from e
     except ValueError as e:
-        # If the error pertains to the tokenizer class not existing or not
-        # currently being imported, suggest using the --trust-remote-code flag.
-        if (not trust_remote_code and
-            ("does not exist or is not currently imported." in str(e)
-             or "requires you to execute the tokenizer file" in str(e))):
-            err_msg = (
-                "Failed to load the tokenizer. If the tokenizer is a custom "
-                "tokenizer not yet available in the HuggingFace transformers "
-                "library, consider setting `trust_remote_code=True` in LLM "
-                "or using the `--trust-remote-code` flag in the CLI.")
-            raise RuntimeError(err_msg) from e
-        else:
+        if (
+            trust_remote_code
+            or "does not exist or is not currently imported." not in str(e)
+            and "requires you to execute the tokenizer file" not in str(e)
+        ):
             raise e
+        err_msg = (
+            "Failed to load the tokenizer. If the tokenizer is a custom "
+            "tokenizer not yet available in the HuggingFace transformers "
+            "library, consider setting `trust_remote_code=True` in LLM "
+            "or using the `--trust-remote-code` flag in the CLI.")
+        raise RuntimeError(err_msg) from e
     except AttributeError as e:
         if "BaichuanTokenizer" in str(e):
             # This is for the error "'BaichuanTokenizer' object has no
@@ -171,12 +170,11 @@ def detokenize_incrementally(
             spaces_between_special_tokens=spaces_between_special_tokens,
         )
 
-    if len(new_text) > len(prefix_text) and not new_text.endswith("�"):
-        # utf-8 char at the end means it's a potential unfinished byte sequence
-        # from byte fallback tokenization.
-        # If it's in the middle, it's probably a real invalid id generated
-        # by the model
-        new_text = new_text[len(prefix_text):]
-        return new_tokens, new_text, read_offset, len(output_tokens)
-    else:
+    if len(new_text) <= len(prefix_text) or new_text.endswith("�"):
         return new_tokens, "", prefix_offset, read_offset
+    # utf-8 char at the end means it's a potential unfinished byte sequence
+    # from byte fallback tokenization.
+    # If it's in the middle, it's probably a real invalid id generated
+    # by the model
+    new_text = new_text[len(prefix_text):]
+    return new_tokens, new_text, read_offset, len(output_tokens)

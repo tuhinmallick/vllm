@@ -200,8 +200,7 @@ def _apply_logits_processors(
     logits_row_idx = 0
     found_logits_processors = False
     for seq_ids, sampling_params in sampling_metadata.seq_groups:
-        logits_processors = sampling_params.logits_processors
-        if logits_processors:
+        if logits_processors := sampling_params.logits_processors:
             found_logits_processors = True
             for seq_id in seq_ids:
                 logits_row = logits[logits_row_idx]
@@ -541,8 +540,7 @@ def _get_logprobs(
                 seq_ids[0]].prompt_token_ids
             batched_logprobs_query_seq_indices.extend(
                 sample_idx + j for j in range(prompt_len - 1))
-            batched_logprobs_query_token_indices.extend(
-                token_id for token_id in prompt_tokens[1:])
+            batched_logprobs_query_token_indices.extend(iter(prompt_tokens[1:]))
             sample_idx += prompt_len - 1
         batched_logprobs_query_seq_indices.extend(
             [sample_idx + parent_id for parent_id in parent_ids])
@@ -641,12 +639,12 @@ def _build_sampler_output(
                                        sample_logprobs):
         seq_ids, _ = seq_group
         next_token_ids, parent_ids = sample_result
-        seq_outputs = []
-        for parent_id, next_token_id, logprobs in zip(parent_ids,
-                                                      next_token_ids,
-                                                      group_sample_logprobs):
-            seq_outputs.append(
-                SequenceOutput(seq_ids[parent_id], next_token_id, logprobs))
+        seq_outputs = [
+            SequenceOutput(seq_ids[parent_id], next_token_id, logprobs)
+            for parent_id, next_token_id, logprobs in zip(
+                parent_ids, next_token_ids, group_sample_logprobs
+            )
+        ]
         sampler_output.append(
             SequenceGroupOutput(seq_outputs, group_prompt_logprobs))
     return sampler_output

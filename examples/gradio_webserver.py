@@ -22,8 +22,7 @@ def http_bot(prompt):
                                      delimiter=b"\0"):
         if chunk:
             data = json.loads(chunk.decode("utf-8"))
-            output = data["text"][0]
-            yield output
+            yield data["text"][0]
 
 
 def build_demo():

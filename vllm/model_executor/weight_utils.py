@@ -29,19 +29,14 @@ class Disabledtqdm(tqdm):
 def get_lock(model_name_or_path: str, cache_dir: Optional[str] = None):
     lock_dir = cache_dir if cache_dir is not None else "/tmp"
     lock_file_name = model_name_or_path.replace("/", "-") + ".lock"
-    lock = filelock.FileLock(os.path.join(lock_dir, lock_file_name))
-    return lock
+    return filelock.FileLock(os.path.join(lock_dir, lock_file_name))
 
 
 def _shared_pointers(tensors):
     ptrs = defaultdict(list)
     for k, v in tensors.items():
         ptrs[v.data_ptr()].append(k)
-    failing = []
-    for _, names in ptrs.items():
-        if len(names) > 1:
-            failing.append(names)
-    return failing
+    return [names for names in ptrs.values() if len(names) > 1]
 
 
 def convert_bin_to_safetensor_file(
@@ -74,8 +69,7 @@ def convert_bin_to_safetensor_file(
 
     # check if the tensors are the same
     reloaded = load_file(sf_filename)
-    for k in loaded:
-        pt_tensor = loaded[k]
+    for k, pt_tensor in loaded.items():
         sf_tensor = reloaded[k]
         if not torch.equal(pt_tensor, sf_tensor):
             raise RuntimeError(f"The output tensors do not match for key {k}")
@@ -110,7 +104,7 @@ def get_quant_config(
         f for f in config_files if any(
             f.endswith(x) for x in quant_cls.get_config_filenames())
     ]
-    if len(quant_config_files) == 0:
+    if not quant_config_files:
         raise ValueError(f"Cannot find the config file for {quantization}")
     if len(quant_config_files) > 1:
         raise ValueError(f"Found multiple config files for {quantization}: "
@@ -189,12 +183,12 @@ def hf_model_weights_iterator(
     if load_format == "auto":
         use_safetensors = True
         fall_back_to_pt = True
-    elif load_format == "safetensors":
-        use_safetensors = True
-    elif load_format == "pt":
-        pass
     elif load_format == "npcache":
         use_np_cache = True
+    elif load_format == "pt":
+        pass
+    elif load_format == "safetensors":
+        use_safetensors = True
     else:
         raise ValueError(f"Unknown load_format: {load_format}")
 
@@ -246,8 +240,7 @@ def hf_model_weights_iterator(
     else:
         for bin_file in hf_weights_files:
             state = torch.load(bin_file, map_location="cpu")
-            for name, param in state.items():
-                yield name, param
+            yield from state.items()
             del state
             torch.cuda.empty_cache()
 

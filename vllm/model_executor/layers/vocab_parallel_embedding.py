@@ -97,9 +97,7 @@ class VocabParallelEmbedding(torch.nn.Module):
         # Mask the output embedding.
         if self.tp_size > 1:
             output_parallel[input_mask, :] = 0.0
-        # Reduce across all the model parallel GPUs.
-        output = tensor_model_parallel_all_reduce(output_parallel)
-        return output
+        return tensor_model_parallel_all_reduce(output_parallel)
 
 
 class ParallelLMHead(VocabParallelEmbedding):

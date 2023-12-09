@@ -290,9 +290,9 @@ class PhiForCausalLM(nn.Module):
         sampling_metadata: SamplingMetadata,
     ) -> SamplerOutput:
         head = self.lm_head.linear
-        next_tokens = self.sampler(head.weight, hidden_states,
-                                   sampling_metadata, head.bias)
-        return next_tokens
+        return self.sampler(
+            head.weight, hidden_states, sampling_metadata, head.bias
+        )
 
     def load_weights(self,
                      model_name_or_path: str,

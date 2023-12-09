@@ -53,9 +53,7 @@ def sample_requests(
             continue
         filtered_dataset.append((prompt, prompt_len, output_len))
 
-    # Sample the requests.
-    sampled_requests = random.sample(filtered_dataset, num_requests)
-    return sampled_requests
+    return random.sample(filtered_dataset, num_requests)
 
 
 def run_vllm(
