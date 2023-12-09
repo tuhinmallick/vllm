@@ -123,11 +123,10 @@ async def validation_exception_handler(_, exc):
 async def check_model(request) -> Optional[JSONResponse]:
     if request.model == served_model:
         return
-    ret = create_error_response(
+    return create_error_response(
         HTTPStatus.NOT_FOUND,
         f"The model `{request.model}` does not exist.",
     )
-    return ret
 
 
 async def check_length(
@@ -135,9 +134,9 @@ async def check_length(
     prompt: Optional[str] = None,
     prompt_ids: Optional[List[int]] = None
 ) -> Tuple[List[int], Optional[JSONResponse]]:
-    assert (not (prompt is None and prompt_ids is None)
-            and not (prompt is not None and prompt_ids is not None)
-            ), "Either prompt or prompt_ids should be provided."
+    assert (prompt is not None or prompt_ids is not None) and (
+        prompt is None or prompt_ids is None
+    ), "Either prompt or prompt_ids should be provided."
     input_ids = prompt_ids if prompt_ids is not None else tokenizer(
         prompt).input_ids
     token_num = len(input_ids)

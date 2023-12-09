@@ -171,13 +171,12 @@ class BlockSpaceManager:
         if last_block.ref_count == 1:
             # Not shared with other sequences. Appendable.
             return None
-        else:
-            # The last block is shared with other sequences.
-            # Copy on Write: Allocate a new block and copy the tokens.
-            new_block = self.gpu_allocator.allocate()
-            block_table[-1] = new_block
-            self.gpu_allocator.free(last_block)
-            return last_block.block_number, new_block.block_number
+        # The last block is shared with other sequences.
+        # Copy on Write: Allocate a new block and copy the tokens.
+        new_block = self.gpu_allocator.allocate()
+        block_table[-1] = new_block
+        self.gpu_allocator.free(last_block)
+        return last_block.block_number, new_block.block_number
 
     def fork(self, parent_seq: Sequence, child_seq: Sequence) -> None:
         # NOTE: fork does not allocate a new physical block.
@@ -227,11 +226,10 @@ class BlockSpaceManager:
                 self.cpu_allocator.free(cpu_block)
             self.block_tables[seq.seq_id] = new_block_table
 
-        block_number_mapping = {
+        return {
             cpu_block.block_number: gpu_block.block_number
             for cpu_block, gpu_block in mapping.items()
         }
-        return block_number_mapping
 
     def can_swap_out(self, seq_group: SequenceGroup) -> bool:
         blocks = self._get_physical_blocks(seq_group)
@@ -256,11 +254,10 @@ class BlockSpaceManager:
                 self.gpu_allocator.free(gpu_block)
             self.block_tables[seq.seq_id] = new_block_table
 
-        block_number_mapping = {
+        return {
             gpu_block.block_number: cpu_block.block_number
             for gpu_block, cpu_block in mapping.items()
         }
-        return block_number_mapping
 
     def _free_block_table(self, block_table: BlockTable) -> None:
         for block in set(block_table):

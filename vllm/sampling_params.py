@@ -129,10 +129,7 @@ class SamplingParams:
             self.stop = [stop]
         else:
             self.stop = list(stop)
-        if stop_token_ids is None:
-            self.stop_token_ids = []
-        else:
-            self.stop_token_ids = list(stop_token_ids)
+        self.stop_token_ids = [] if stop_token_ids is None else list(stop_token_ids)
         self.ignore_eos = ignore_eos
         self.max_tokens = max_tokens
         self.logprobs = logprobs

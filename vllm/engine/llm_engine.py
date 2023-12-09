@@ -242,12 +242,12 @@ class LLMEngine:
         # Initialize the cluster.
         distributed_init_method, placement_group = initialize_cluster(
             parallel_config)
-        # Create the LLM engine.
-        engine = cls(*engine_configs,
-                     distributed_init_method,
-                     placement_group,
-                     log_stats=not engine_args.disable_log_stats)
-        return engine
+        return cls(
+            *engine_configs,
+            distributed_init_method,
+            placement_group,
+            log_stats=not engine_args.disable_log_stats
+        )
 
     def add_request(
         self,
@@ -389,7 +389,7 @@ class LLMEngine:
         for parent in parent_seqs:
             child_samples: List[SequenceOutput] = parent_child_dict[
                 parent.seq_id]
-            if len(child_samples) == 0:
+            if not child_samples:
                 # This parent sequence has no children samples. Remove
                 # the parent sequence from the sequence group since it will
                 # not be used in the future iterations.
@@ -435,9 +435,6 @@ class LLMEngine:
                     self.scheduler.free_seq(seq)
             return
 
-        # Beam search case
-        # Select the child sequences to keep in the sequence group.
-        selected_child_seqs = []
         unselected_child_seqs = []
         beam_width = seq_group.sampling_params.best_of
         length_penalty = seq_group.sampling_params.length_penalty
@@ -455,11 +452,11 @@ class LLMEngine:
             length_penalty=length_penalty,
             eos_token_id=self.tokenizer.eos_token_id),
                                reverse=True)
-        for seq, parent, is_new in all_finished_seqs[:beam_width]:
-            if is_new:
-                # A newly generated child sequence finishes and has a high
-                # score, so we will add it into the sequence group.
-                selected_child_seqs.append((seq, parent))
+        selected_child_seqs = [
+            (seq, parent)
+            for seq, parent, is_new in all_finished_seqs[:beam_width]
+            if is_new
+        ]
         for seq, parent, is_new in all_finished_seqs[beam_width:]:
             if is_new:
                 # A newly generated child sequence finishes but has a low
@@ -485,7 +482,7 @@ class LLMEngine:
                                 reverse=True)
 
         # Check if we can stop the beam search.
-        if len(running_child_seqs) == 0:
+        if not running_child_seqs:
             # No running sequences, stop the beam search.
             stop_beam_search = True
         elif len(all_finished_seqs) < beam_width:

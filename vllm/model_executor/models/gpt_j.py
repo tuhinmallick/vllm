@@ -240,18 +240,21 @@ class GPTJForCausalLM(nn.Module):
         input_metadata: InputMetadata,
         cache_events: Optional[List[torch.cuda.Event]],
     ) -> torch.Tensor:
-        hidden_states = self.transformer(input_ids, positions, kv_caches,
-                                         input_metadata, cache_events)
-        return hidden_states
+        return self.transformer(
+            input_ids, positions, kv_caches, input_metadata, cache_events
+        )
 
     def sample(
         self,
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> SamplerOutput:
-        next_tokens = self.sampler(self.lm_head.weight, hidden_states,
-                                   sampling_metadata, self.lm_head.bias)
-        return next_tokens
+        return self.sampler(
+            self.lm_head.weight,
+            hidden_states,
+            sampling_metadata,
+            self.lm_head.bias,
+        )
 
     def load_weights(self,
                      model_name_or_path: str,

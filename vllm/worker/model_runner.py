@@ -42,7 +42,7 @@ class ModelRunner:
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
     ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata]:
-        assert len(seq_group_metadata_list) > 0
+        assert seq_group_metadata_list
         input_tokens: List[List[int]] = []
         input_positions: List[List[int]] = []
         slot_mapping: List[List[int]] = []
@@ -118,7 +118,7 @@ class ModelRunner:
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
     ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata]:
-        assert len(seq_group_metadata_list) > 0
+        assert seq_group_metadata_list
         input_tokens: List[List[int]] = []
         input_positions: List[List[int]] = []
         slot_mapping: List[List[int]] = []
@@ -170,7 +170,7 @@ class ModelRunner:
         context_lens = torch.tensor(context_lens,
                                     dtype=torch.int,
                                     device="cuda")
-        max_block_table_len = max([len(t) for t in block_tables])
+        max_block_table_len = max(len(t) for t in block_tables)
         block_tables = _make_tensor_with_pad(block_tables,
                                              max_len=max_block_table_len,
                                              pad=0,
@@ -196,7 +196,7 @@ class ModelRunner:
         categorized_sample_indices = {t: [] for t in SamplingType}
         categorized_sample_indices_start_idx = 0
 
-        max_prompt_len = max(prompt_lens) if prompt_lens else 1
+        max_prompt_len = max(prompt_lens, default=1)
         for i, seq_group_metadata in enumerate(seq_group_metadata_list):
             seq_ids = list(seq_group_metadata.seq_data.keys())
             sampling_params = seq_group_metadata.sampling_params
@@ -246,14 +246,13 @@ class ModelRunner:
         for seq_group_metadata in seq_group_metadata_list:
             seq_data.update(seq_group_metadata.seq_data)
 
-        sampling_metadata = SamplingMetadata(
+        return SamplingMetadata(
             seq_groups=seq_groups,
             seq_data=seq_data,
             prompt_lens=prompt_lens,
             selected_token_indices=selected_token_indices,
             categorized_sample_indices=categorized_sample_indices,
         )
-        return sampling_metadata
 
     @torch.inference_mode()
     def execute_model(
@@ -268,10 +267,9 @@ class ModelRunner:
         is_prompt = seq_group_metadata_list[0].is_prompt
         if is_prompt:
             inputs = self._prepare_prompt(seq_group_metadata_list)
-            input_tokens, input_positions, input_metadata = inputs
         else:
             inputs = self._prepare_decode(seq_group_metadata_list)
-            input_tokens, input_positions, input_metadata = inputs
+        input_tokens, input_positions, input_metadata = inputs
         sampling_metadata = self._prepare_sample(seq_group_metadata_list,
                                                  input_metadata.prompt_lens)
 
@@ -284,12 +282,10 @@ class ModelRunner:
             cache_events=cache_events,
         )
 
-        # Sample the next token.
-        output = self.model.sample(
+        return self.model.sample(
             hidden_states=hidden_states,
             sampling_metadata=sampling_metadata,
         )
-        return output
 
     @torch.inference_mode()
     def profile_run(self) -> None:

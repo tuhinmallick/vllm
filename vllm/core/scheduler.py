@@ -193,18 +193,17 @@ class Scheduler:
                 scheduled.append(seq_group)
 
             if scheduled or ignored_seq_groups:
-                scheduler_outputs = SchedulerOutputs(
+                return SchedulerOutputs(
                     scheduled_seq_groups=scheduled,
                     prompt_run=True,
-                    num_batched_tokens=len(seq_lens) *
-                    max(seq_lens) if seq_lens else 0,
+                    num_batched_tokens=len(seq_lens) * max(seq_lens)
+                    if seq_lens
+                    else 0,
                     blocks_to_swap_in=blocks_to_swap_in,
                     blocks_to_swap_out=blocks_to_swap_out,
                     blocks_to_copy=blocks_to_copy,
                     ignored_seq_groups=ignored_seq_groups,
                 )
-                return scheduler_outputs
-
         # NOTE(woosuk): Preemption happens only when there is no available slot
         # to keep all the sequence groups in the RUNNING state.
         # In this case, the policy is responsible for deciding which sequence
@@ -266,7 +265,7 @@ class Scheduler:
             seq_group.num_seqs(status=SequenceStatus.RUNNING)
             for seq_group in self.running)
 
-        scheduler_outputs = SchedulerOutputs(
+        return SchedulerOutputs(
             scheduled_seq_groups=self.running,
             prompt_run=False,
             num_batched_tokens=num_batched_tokens,
@@ -275,7 +274,6 @@ class Scheduler:
             blocks_to_copy=blocks_to_copy,
             ignored_seq_groups=[],
         )
-        return scheduler_outputs
 
     def schedule(self) -> Tuple[List[SequenceGroupMetadata], SchedulerOutputs]:
         # Schedule sequence groups.

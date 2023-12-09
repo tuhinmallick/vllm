@@ -45,7 +45,7 @@ class PagedAttention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         self.head_size = head_size
-        self.scale = float(scale)
+        self.scale = scale
         self.num_kv_heads = num_heads if num_kv_heads is None else num_kv_heads
         self.sliding_window = sliding_window
         if alibi_slopes is not None:
@@ -208,8 +208,7 @@ def _make_alibi_bias(
         dtype=dtype,
     )[:, :, :, :seq_len].copy_(bias)
     bias.mul_(alibi_slopes[:, None, None])
-    attn_bias = LowerTriangularMaskWithTensorBias(bias)
-    return attn_bias
+    return LowerTriangularMaskWithTensorBias(bias)
 
 
 def _paged_attention(

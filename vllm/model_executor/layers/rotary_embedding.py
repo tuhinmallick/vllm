@@ -67,19 +67,15 @@ class RotaryEmbedding(nn.Module):
 
     def _compute_inv_freq(self, base: Union[int, float]) -> torch.Tensor:
         """Compute the inverse frequency."""
-        # NOTE(woosuk): The HF implementation uses `torch.arange(...).float()`.
-        # However, we use `torch.arange(..., dtype=torch.float)` instead to
-        # avoid numerical issues with large base values (e.g., 10000000).
-        # This may cause a slight numerical difference between the HF
-        # implementation and ours.
-        # NOTE(woosuk): To exactly match the HF implementation, we need to
-        # use CPU to compute the cache and then move it to GPU. However, we
-        # create the cache on GPU for faster initialization. This may cause
-        # a slight numerical difference between the HF implementation and ours.
-        inv_freq = 1.0 / (base**(torch.arange(
-            0, self.rotary_dim, 2, dtype=torch.float, device="cuda") /
-                                 self.rotary_dim))
-        return inv_freq
+        return 1.0 / (
+            base
+            ** (
+                torch.arange(
+                    0, self.rotary_dim, 2, dtype=torch.float, device="cuda"
+                )
+                / self.rotary_dim
+            )
+        )
 
     def _compute_cos_sin_cache(self) -> torch.Tensor:
         """Compute the cos and sin cache."""
@@ -91,8 +87,7 @@ class RotaryEmbedding(nn.Module):
         freqs = torch.einsum("i,j -> ij", t, inv_freq)
         cos = freqs.cos()
         sin = freqs.sin()
-        cache = torch.cat((cos, sin), dim=-1)
-        return cache
+        return torch.cat((cos, sin), dim=-1)
 
     def _forward(
         self,
@@ -180,8 +175,7 @@ class LinearScalingRotaryEmbedding(RotaryEmbedding):
         freqs = torch.einsum("i,j -> ij", t, inv_freq)
         cos = freqs.cos()
         sin = freqs.sin()
-        cache = torch.cat((cos, sin), dim=-1)
-        return cache
+        return torch.cat((cos, sin), dim=-1)
 
 
 class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
@@ -219,8 +213,7 @@ class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
         freqs = torch.einsum("i,j -> ij", t, inv_freq)
         cos = freqs.cos()
         sin = freqs.sin()
-        cache = torch.cat((cos, sin), dim=-1)
-        return cache
+        return torch.cat((cos, sin), dim=-1)
 
 
 # Inverse dim formula to find dim based on number of rotations
@@ -255,14 +248,11 @@ def _yarn_linear_ramp_mask(low: float, high: float, dim: int,
 
     linear_func = (torch.arange(dim, dtype=dtype, device=device) -
                    low) / (high - low)
-    ramp_func = torch.clamp(linear_func, 0, 1)
-    return ramp_func
+    return torch.clamp(linear_func, 0, 1)
 
 
 def _yarn_get_mscale(scale: float = 1) -> float:
-    if scale <= 1:
-        return 1.0
-    return 0.1 * math.log(scale) + 1.0
+    return 1.0 if scale <= 1 else 0.1 * math.log(scale) + 1.0
 
 
 class YaRNScalingRotaryEmbedding(RotaryEmbedding):
@@ -310,9 +300,10 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
         inv_freq_mask = (1 - _yarn_linear_ramp_mask(
             low, high, self.rotary_dim // 2, dtype=torch.float,
             device="cuda")) * self.extrapolation_factor
-        inv_freq = inv_freq_interpolation * (
-            1 - inv_freq_mask) + inv_freq_extrapolation * inv_freq_mask
-        return inv_freq
+        return (
+            inv_freq_interpolation * (1 - inv_freq_mask)
+            + inv_freq_extrapolation * inv_freq_mask
+        )
 
     def _compute_cos_sin_cache(self) -> torch.Tensor:
         inv_freq = self._compute_inv_freq(self.scaling_factor)
@@ -322,8 +313,7 @@ class YaRNScalingRotaryEmbedding(RotaryEmbedding):
         freqs = torch.einsum("i,j -> ij", t, inv_freq)
         cos = (freqs.cos() * self.mscale)
         sin = (freqs.sin() * self.mscale)
-        cache = torch.cat((cos, sin), dim=-1)
-        return cache
+        return torch.cat((cos, sin), dim=-1)
 
 
 _ROPE_DICT: Dict[Tuple, RotaryEmbedding] = {}

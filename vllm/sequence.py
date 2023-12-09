@@ -32,19 +32,17 @@ class SequenceStatus(enum.Enum):
     @staticmethod
     def get_finished_reason(status: "SequenceStatus") -> Union[str, None]:
         if status == SequenceStatus.FINISHED_STOPPED:
-            finish_reason = "stop"
-        elif status == SequenceStatus.FINISHED_LENGTH_CAPPED:
-            finish_reason = "length"
+            return "stop"
+        elif (
+            status == SequenceStatus.FINISHED_LENGTH_CAPPED
+            or status != SequenceStatus.FINISHED_ABORTED
+            and status == SequenceStatus.FINISHED_IGNORED
+        ):
+            return "length"
         elif status == SequenceStatus.FINISHED_ABORTED:
-            finish_reason = "abort"
-        elif status == SequenceStatus.FINISHED_IGNORED:
-            # The ignored sequences are the sequences whose prompt lengths
-            # are longer than the model's length cap. Therefore, the stop
-            # reason should also be "length" as in OpenAI API.
-            finish_reason = "length"
+            return "abort"
         else:
-            finish_reason = None
-        return finish_reason
+            return None
 
 
 class SequenceData:
@@ -262,15 +260,14 @@ class SequenceGroup:
             # For beam search, maximally there will always be `best_of` beam
             # candidates running in the future.
             return self.sampling_params.best_of
-        else:
-            if self.sampling_params.best_of > self.num_seqs():
-                # At prompt stage, the sequence group is not yet filled up
-                # and only have one sequence running. However, in the
-                # generation stage, we will have `best_of` sequences running.
-                return self.sampling_params.best_of
-            # At sampling stages, return the number of actual sequences
-            # that are not finished yet.
-            return self.num_unfinished_seqs()
+        if self.sampling_params.best_of > self.num_seqs():
+            # At prompt stage, the sequence group is not yet filled up
+            # and only have one sequence running. However, in the
+            # generation stage, we will have `best_of` sequences running.
+            return self.sampling_params.best_of
+        # At sampling stages, return the number of actual sequences
+        # that are not finished yet.
+        return self.num_unfinished_seqs()
 
     def get_seqs(
         self,
